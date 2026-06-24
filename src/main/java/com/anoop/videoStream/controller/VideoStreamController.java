@@ -1,6 +1,5 @@
 package com.anoop.videoStream.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -20,17 +19,27 @@ import com.anoop.videoStream.stream.streamService.DownloadVideoChunk;
 import com.anoop.videoStream.stream.streamService.VirtualVideoStreamService;
 
 
+
 @RestController
 public class VideoStreamController {
 
-    @Autowired
     private VirtualVideoStreamService streamService;
 
-    @Autowired
     private DownloadVideoChunk downloadVideoChunk;
 
-    @Autowired
     private StreamSessionManager sessionManager;
+
+    
+
+   
+
+    public VideoStreamController(VirtualVideoStreamService streamService, DownloadVideoChunk downloadVideoChunk,
+            StreamSessionManager sessionManager) {
+        this.streamService = streamService;
+        this.downloadVideoChunk = downloadVideoChunk;
+        this.sessionManager = sessionManager;
+    }
+
 
     // ORIGINAL FILE SIZE
     // Store this in DB in production

@@ -25,9 +25,9 @@ public class ExecutorConfig {
     // private VideoChunkQueue videoChunkQueue;
 
     @Bean
-    public ExecutorService uploadExecutor() {
+    public ExecutorService executor() {
 
-    return Executors.newFixedThreadPool(3);
+    return Executors.newFixedThreadPool(5);
     }
 
     @Bean
@@ -64,22 +64,22 @@ public class ExecutorConfig {
 
         System.out.println("Shutting down upload workers...");
 
-        uploadExecutor().shutdown();
+        executor().shutdown();
         retryExecutor().shutdown();
 
         try {
 
-            if (!uploadExecutor().awaitTermination(30, TimeUnit.SECONDS)|| !retryExecutor().awaitTermination(30, TimeUnit.SECONDS)) {
+            if (!executor().awaitTermination(30, TimeUnit.SECONDS)|| !retryExecutor().awaitTermination(30, TimeUnit.SECONDS)) {
 
                 System.out.println("Force shutdown");
 
-                uploadExecutor().shutdownNow();
+                executor().shutdownNow();
                 retryExecutor().shutdownNow();
             }
 
         } catch (InterruptedException e) {
 
-            uploadExecutor().shutdownNow();
+            executor().shutdownNow();
             retryExecutor().shutdownNow();
 
             Thread.currentThread().interrupt();

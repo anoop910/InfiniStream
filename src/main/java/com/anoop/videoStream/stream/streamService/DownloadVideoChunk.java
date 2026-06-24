@@ -9,9 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.anoop.videoStream.Model.FullVideo;
 import com.anoop.videoStream.Model.VideoChunk;
@@ -24,20 +24,24 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
+
 public class DownloadVideoChunk {
 
     @Value("${telegram.bot.token}")
     private String botToken;
 
-    @Autowired
     private TelegramWebClientConfig telegramWebClientConfig;
 
-    @Autowired
     private StreamSessionManager streamSessionManager;
 
-  
-    @Autowired
     private FullVideoRepo fullVideoRepo;
+
+    public DownloadVideoChunk(TelegramWebClientConfig telegramWebClientConfig,
+            StreamSessionManager streamSessionManager, FullVideoRepo fullVideoRepo) {
+        this.telegramWebClientConfig = telegramWebClientConfig;
+        this.streamSessionManager = streamSessionManager;
+        this.fullVideoRepo = fullVideoRepo;
+    }
 
     Map<String, List<VideoChunk>> video = new HashMap<>();
 
@@ -68,6 +72,7 @@ public class DownloadVideoChunk {
     }
 
     // Step C — stream full video to response
+    @Transactional
     public void streamVideo(String videoId) throws Exception {
 
         Optional<FullVideo> byVideoID = fullVideoRepo.findByVideoID(videoId);
@@ -76,35 +81,41 @@ public class DownloadVideoChunk {
         video.put(videoId, chunks);
 
         // if (chunks.isEmpty()) {
-        //     throw new RuntimeException("No chunks found for video: " + videoId);
+        // throw new RuntimeException("No chunks found for video: " + videoId);
         // }
 
         // Path folder = createVideoFolder(videoId);
 
         // for (VideoChunk chunk : chunks) {
-        //     System.out.println("Downloading chunk " + chunk.getChunkIndex()
-        //             + " file_id: " + chunk.getTelegramFileId());
+        // System.out.println("Downloading chunk " + chunk.getChunkIndex()
+        // + " file_id: " + chunk.getTelegramFileId());
 
-        //     String filePath = getFilePath(chunk.getTelegramFileId());
-        //     byte[] data = downloadChunk(filePath);
-        //     saveChunk(data, folder, chunk.getChunkIndex());
+        // String filePath = getFilePath(chunk.getTelegramFileId());
+        // byte[] data = downloadChunk(filePath);
+        // saveChunk(data, folder, chunk.getChunkIndex());
 
         // }
     }
 
     public void downloadChunkByIndex(String videoID, int index) {
         System.out.println("call revice");
-       StreamSession session = streamSessionManager.getSession(videoID);
-       List<VideoChunk> videoChunks = session.getVideoChunks();
+        StreamSession session = streamSessionManager.getSession(videoID);
+        if (session == null) {
+            session = streamSessionManager
+                    .getOrCreateStreamSession(videoID);
+        }
+        List<VideoChunk> videoChunks = session.getVideoChunks();
         String telegramFileId = videoChunks.get(index).getTelegramFileId();
-        System.out.println("Downloading chunk " + index+ " file_id: " + telegramFileId);
+        System.out.println("Downloading chunk " + index + " file_id: " + telegramFileId);
         String filePath = getFilePath(telegramFileId);
         byte[] data = downloadChunk(filePath);
+        System.out.println("video is downloaded");
         try {
             Path videoFolder = createVideoFolder(videoID);
+            System.out.println("folder is created");
             saveChunk(data, videoFolder, index);
         } catch (IOException e) {
-         
+
             e.printStackTrace();
         }
     }
@@ -114,9 +125,8 @@ public class DownloadVideoChunk {
             throws IOException {
 
         Path folder = Paths.get(
-                "D:\\videoStream",
+                "D:\\InfiniStream\\videoStream",
                 videoId);
-
         Files.createDirectories(folder);
 
         return folder;

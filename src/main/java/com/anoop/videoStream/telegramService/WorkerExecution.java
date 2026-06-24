@@ -1,10 +1,12 @@
 package com.anoop.videoStream.telegramService;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import com.anoop.videoStream.stream.streamService.DownloadVideoChunk;
 import org.springframework.stereotype.Component;
 
 import com.anoop.videoStream.Model.ChunkUploadTask;
+import com.anoop.videoStream.Model.DownloadVideoTask;
 import com.anoop.videoStream.config.ExecutorConfig;
+import com.anoop.videoStream.queue.DownloadVideoChunkQueue;
 import com.anoop.videoStream.queue.RetryQueue;
 import com.anoop.videoStream.queue.VideoChunkQueue;
 
@@ -13,28 +15,59 @@ import jakarta.annotation.PostConstruct;
 @Component
 public class WorkerExecution {
 
-    @Autowired
+    private final DownloadVideoChunk downloadVideoChunk;
+
+    private final DownloadVideoChunkQueue downloadVideoChunkQueue;
+
     private VideoUploadToTelegram videoUploadToTelegram;
 
-    @Autowired
     private VideoChunkQueue videoChunkQueue;
 
-    @Autowired
     private ExecutorConfig executorConfig;
 
-    @Autowired
     private RetryQueue retryQueue;
+
+    public WorkerExecution(VideoUploadToTelegram videoUploadToTelegram, VideoChunkQueue videoChunkQueue,
+            ExecutorConfig executorConfig, RetryQueue retryQueue, DownloadVideoChunk downloadVideoChunk,
+            DownloadVideoChunkQueue downloadVideoChunkQueue) {
+        this.videoUploadToTelegram = videoUploadToTelegram;
+        this.videoChunkQueue = videoChunkQueue;
+        this.executorConfig = executorConfig;
+        this.retryQueue = retryQueue;
+        this.downloadVideoChunk = downloadVideoChunk;
+        this.downloadVideoChunkQueue = downloadVideoChunkQueue;
+    }
 
     @PostConstruct
     public void createWoker() {
         for (int i = 0; i < 3; i++) {
-            executorConfig.uploadExecutor().submit(this::workerLoop);
+            executorConfig.executor().submit(this::uploadWorkerLoop);
 
+        }
+
+        for (int i = 0; i < 2; i++) {
+            executorConfig.executor().submit(this::downloadWokerLoop);
         }
 
     }
 
-    private void workerLoop() {
+    private void downloadWokerLoop() {
+        while (true) {
+
+            try {
+                DownloadVideoTask taskToQueue = downloadVideoChunkQueue.getTaskToQueue();
+                String videoId = taskToQueue.getVideoId();
+                int index = taskToQueue.getIndex();
+
+                downloadVideoChunk.downloadChunkByIndex(videoId, index);
+            } catch (Exception e) {
+               e.printStackTrace();
+            }
+
+        }
+    }
+
+    private void uploadWorkerLoop() {
 
         while (true) {
             try {
@@ -50,30 +83,28 @@ public class WorkerExecution {
     }
 
     @PostConstruct
-public void retryTaskUpload() {
+    public void retryTaskUpload() {
 
-    executorConfig.retryExecutor().submit(() -> {
+        executorConfig.retryExecutor().submit(() -> {
 
-        while(true) {
+            while (true) {
 
-            try {
+                try {
 
-                ChunkUploadTask uploadTask =
-                        retryQueue.getUploadTask();
+                    ChunkUploadTask uploadTask = retryQueue.getUploadTask();
 
-                uploadTask.incrementRetry();
+                    uploadTask.incrementRetry();
 
-                videoUploadToTelegram
-                        .uploadToTelegram(uploadTask);
+                    videoUploadToTelegram
+                            .uploadToTelegram(uploadTask);
 
-            } catch (Exception e) {
+                } catch (Exception e) {
 
-                System.out.println(
-                        "Retry failed"
-                );
+                    System.out.println(
+                            "Retry failed");
+                }
             }
-        }
-    });
-}
+        });
+    }
 
 }

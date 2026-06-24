@@ -2,17 +2,22 @@ package com.anoop.videoStream.memory;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.anoop.videoStream.Model.FullVideo;
 import com.anoop.videoStream.repository.FullVideoRepo;
 
+
 @Service
 public class UploadSessionManager {
 
-        @Autowired
+        
         private FullVideoRepo fullVideoRepo;
+        
+
+        public UploadSessionManager(FullVideoRepo fullVideoRepo) {
+                this.fullVideoRepo = fullVideoRepo;
+        }
 
         private ConcurrentHashMap<String, UploadSession> activeUploads = new ConcurrentHashMap<>();
 

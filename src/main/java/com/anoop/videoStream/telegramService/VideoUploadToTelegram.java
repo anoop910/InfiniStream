@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
@@ -23,20 +22,31 @@ import com.anoop.videoStream.queue.RetryQueue;
 import reactor.util.retry.Retry;
 
 @Component
+
 public class VideoUploadToTelegram {
 
-        @Autowired
         private TelegramWebClientConfig telegramWebClientConfig;
 
 
-        @Autowired
         private UploadSessionManager sessionManager;
 
-        @Autowired
         private DatabaseFlushService databaseFlushService;
 
-        @Autowired
         private RetryQueue retryQueue;
+
+
+
+
+       
+
+        public VideoUploadToTelegram(TelegramWebClientConfig telegramWebClientConfig,
+                        UploadSessionManager sessionManager, DatabaseFlushService databaseFlushService,
+                        RetryQueue retryQueue) {
+                this.telegramWebClientConfig = telegramWebClientConfig;
+                this.sessionManager = sessionManager;
+                this.databaseFlushService = databaseFlushService;
+                this.retryQueue = retryQueue;
+        }
 
         @Value("${telegram.bot.token}")
         private String botToken;

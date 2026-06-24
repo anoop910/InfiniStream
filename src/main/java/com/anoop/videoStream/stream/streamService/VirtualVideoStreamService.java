@@ -1,7 +1,9 @@
 package com.anoop.videoStream.stream.streamService;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import com.anoop.videoStream.Model.DownloadVideoTask;
+import com.anoop.videoStream.queue.DownloadVideoChunkQueue;
 
 import java.io.File;
 import java.io.RandomAccessFile;
@@ -15,8 +17,15 @@ public class VirtualVideoStreamService {
 
         private static final int BUFFER_SIZE = 64 * 1024; // 64 KB
 
-        @Autowired
         private DownloadVideoChunk downloadVideoChunk;
+
+        private DownloadVideoChunkQueue downloadVideoChunkQueue;
+
+        public VirtualVideoStreamService(DownloadVideoChunk downloadVideoChunk,
+                        DownloadVideoChunkQueue downloadVideoChunkQueue) {
+                this.downloadVideoChunk = downloadVideoChunk;
+                this.downloadVideoChunkQueue = downloadVideoChunkQueue;
+        }
 
         public void streamVideo(String videoID, long start, long end, OutputStream outputStream) throws Exception {
                 System.out.println("file name : " + videoID);
@@ -47,21 +56,39 @@ public class VirtualVideoStreamService {
 
                         int index = (int) chunkIndex;
 
-
-
-                       
                         File chunkFile = new File(videoID + "/" + "chunk_" + chunkIndex + ".mp4" + "." + chunkIndex);
-                      
 
                         if (!chunkFile.exists()) {
 
-                                downloadVideoChunk.downloadChunkByIndex(videoID, index);
+                                for (int i = 0; i < 2; i++) {
+                                        DownloadVideoTask task = new DownloadVideoTask();
+                                        task.setIndex(index + i);
+                                        task.setVideoId(videoID);
 
+                                        downloadVideoChunkQueue.setTaskToQueue(task);
+
+                                }
+
+                                long startWait = System.currentTimeMillis();
+
+                                while (!chunkFile.exists()) {
+
+                                        if (System.currentTimeMillis() - startWait > 30000) {
+                                                throw new RuntimeException(
+                                                                "Timeout waiting for chunk " + index);
+                                        }
+
+                                        Thread.sleep(100);
+                                }
                         }
 
                         /*
                          * Open chunk
                          */
+
+                        if (!chunkFile.exists()) {
+
+                        }
                         RandomAccessFile raf = new RandomAccessFile(chunkFile, "r");
 
                         /*

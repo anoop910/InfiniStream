@@ -5,15 +5,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.anoop.videoStream.Model.ChunkUploadTask;
 
 @Component
 public class VideoChunkQueue {
-    @Value("${queue.capacity}")
-    private int queueCapacity;
+    // @Value("${queue.capacity}")
+    // private int queueCapacity;
 
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 

@@ -5,14 +5,12 @@ import com.anoop.videoStream.Model.FullVideo;
 import com.anoop.videoStream.queue.VideoChunkQueue;
 import com.anoop.videoStream.repository.FullVideoRepo;
 
-import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashMap;
-import java.util.Map;
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -21,19 +19,27 @@ public class UploadController {
     // @Autowired
     // private TelegramUploadService telegramUploadService;
 
-    @Autowired
+    
     private VideoChunkQueue videoChunkQueue;
     // @Autowired
     // private UploadService uploadService;
 
 
-    @Autowired
+   
     private FullVideoRepo fullVideoRepo;
+
+
 
 
  
 
-    Map<String, Long> map = new HashMap<>(5);
+    public UploadController(VideoChunkQueue videoChunkQueue, FullVideoRepo fullVideoRepo) {
+        this.videoChunkQueue = videoChunkQueue;
+        this.fullVideoRepo = fullVideoRepo;
+       
+    }
+
+    //Map<String, Long> map = new HashMap<>(5);
 
     /**
      * Browser sends one chunk at a time.
