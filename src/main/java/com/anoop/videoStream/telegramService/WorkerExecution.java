@@ -59,6 +59,8 @@ public class WorkerExecution {
                 String videoId = taskToQueue.getVideoId();
                 int index = taskToQueue.getIndex();
 
+                
+
                 downloadVideoChunk.downloadChunkByIndex(videoId, index);
             } catch (Exception e) {
                e.printStackTrace();

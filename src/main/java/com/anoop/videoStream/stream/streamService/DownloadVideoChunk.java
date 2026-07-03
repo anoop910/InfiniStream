@@ -95,28 +95,28 @@ public class DownloadVideoChunk {
         // saveChunk(data, folder, chunk.getChunkIndex());
 
         // }
+
     }
 
     public void downloadChunkByIndex(String videoID, int index) {
-        System.out.println("call revice");
-        StreamSession session = streamSessionManager.getSession(videoID);
-        if (session == null) {
-            session = streamSessionManager
-                    .getOrCreateStreamSession(videoID);
-        }
-        List<VideoChunk> videoChunks = session.getVideoChunks();
-        String telegramFileId = videoChunks.get(index).getTelegramFileId();
-        System.out.println("Downloading chunk " + index + " file_id: " + telegramFileId);
-        String filePath = getFilePath(telegramFileId);
-        byte[] data = downloadChunk(filePath);
-        System.out.println("video is downloaded");
-        try {
-            Path videoFolder = createVideoFolder(videoID);
-            System.out.println("folder is created");
-            saveChunk(data, videoFolder, index);
-        } catch (IOException e) {
+        
+        StreamSession session = streamSessionManager.getOrCreateStreamSession(videoID);
+        if (index != session.getVideoChunks().size()) {
+            VideoChunk videoChunk = session.getVideoChunks().get(index);
 
-            e.printStackTrace();
+            String telegramFileId = videoChunk.getTelegramFileId();
+            System.out.println("Downloading chunk " + index + " file_id: " + telegramFileId);
+            String filePath = getFilePath(telegramFileId);
+            byte[] data = downloadChunk(filePath);
+            System.out.println("video is downloaded");
+            try {
+                Path videoFolder = createVideoFolder(videoID);
+                System.out.println("folder is created");
+                saveChunk(data, videoFolder, index);
+            } catch (IOException e) {
+
+                e.printStackTrace();
+            }
         }
     }
 

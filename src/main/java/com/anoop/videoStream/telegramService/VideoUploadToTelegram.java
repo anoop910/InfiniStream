@@ -54,6 +54,9 @@ public class VideoUploadToTelegram {
         @Value("${telegram.chat.id}")
         private String chatId;
 
+        @Value("${telegram.upload.retry}")
+        private int uploadRetry;
+
         // @Autowired
         // private UploadService uploadService;
 
@@ -80,7 +83,7 @@ public class VideoUploadToTelegram {
                                 .retrieve()
                                 .bodyToMono(TelegramResponse.class)
                                 .timeout(Duration.ofSeconds(60))
-                                .retryWhen(Retry.fixedDelay(1, Duration.ofSeconds(1)))
+                                .retryWhen(Retry.fixedDelay(uploadRetry, Duration.ofSeconds(1)))
                                 .doOnError(error -> {
                                         try {
                                                 retryQueue.setRetryTask(task);
