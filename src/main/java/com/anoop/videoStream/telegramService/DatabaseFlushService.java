@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.anoop.videoStream.Model.VideoChunk;
 import com.anoop.videoStream.memory.UploadSession;
+import com.anoop.videoStream.memory.VideoFolderMapToChunk;
 import com.anoop.videoStream.repository.VideoChunkRepo;
 
 
@@ -16,11 +17,13 @@ import com.anoop.videoStream.repository.VideoChunkRepo;
 public class DatabaseFlushService {
 
         private VideoChunkRepo videoChunkRepo;
+        private VideoFolderMapToChunk videoFolderMapToChunk;
 
         
 
-        public DatabaseFlushService(VideoChunkRepo videoChunkRepo) {
+        public DatabaseFlushService(VideoChunkRepo videoChunkRepo, VideoFolderMapToChunk videoFolderMapToChunk) {
                 this.videoChunkRepo = videoChunkRepo;
+                this.videoFolderMapToChunk = videoFolderMapToChunk;
         }
 
 
@@ -33,6 +36,8 @@ public class DatabaseFlushService {
                 System.out.println("SAVING " + chunks.size() + " CHUNKS TO DB");
 
                 videoChunkRepo.saveAll(chunks);
+
+               
 
                 // save FullVideo
 

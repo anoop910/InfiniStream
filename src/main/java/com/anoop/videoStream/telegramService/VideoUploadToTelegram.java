@@ -1,5 +1,9 @@
 package com.anoop.videoStream.telegramService;
 
+import com.anoop.videoStream.memory.VideoFolderMapToChunk;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -18,12 +22,16 @@ import com.anoop.videoStream.dto.TelegramResponse;
 import com.anoop.videoStream.memory.UploadSession;
 import com.anoop.videoStream.memory.UploadSessionManager;
 import com.anoop.videoStream.queue.RetryQueue;
+import com.anoop.videoStream.util.FileOperation;
 
 import reactor.util.retry.Retry;
 
 @Component
 
 public class VideoUploadToTelegram {
+
+        private final VideoFolderMapToChunk videoFolderMapToChunk;
+
 
         private TelegramWebClientConfig telegramWebClientConfig;
 
@@ -34,6 +42,8 @@ public class VideoUploadToTelegram {
 
         private RetryQueue retryQueue;
 
+        private FileOperation fileOperation;
+
 
 
 
@@ -41,11 +51,13 @@ public class VideoUploadToTelegram {
 
         public VideoUploadToTelegram(TelegramWebClientConfig telegramWebClientConfig,
                         UploadSessionManager sessionManager, DatabaseFlushService databaseFlushService,
-                        RetryQueue retryQueue) {
+                        RetryQueue retryQueue, VideoFolderMapToChunk videoFolderMapToChunk, FileOperation fileOperation) {
                 this.telegramWebClientConfig = telegramWebClientConfig;
                 this.sessionManager = sessionManager;
                 this.databaseFlushService = databaseFlushService;
                 this.retryQueue = retryQueue;
+                this.videoFolderMapToChunk = videoFolderMapToChunk;
+                this.fileOperation = fileOperation;
         }
 
         @Value("${telegram.bot.token}")
@@ -62,13 +74,17 @@ public class VideoUploadToTelegram {
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
-        public void uploadToTelegram(ChunkUploadTask task) {
+        public void uploadToTelegram(ChunkUploadTask task) throws IOException {
                 System.out.println(
                                 "UPLOADING..." + LocalTime.now().format(formatter) + " " + task.getFileName() + " "
                                                 + task.getChunkIndex());
+
+
+                Path path = task.getPath(); 
+                byte[] allBytes = Files.readAllBytes(path);                               
                 MultipartBodyBuilder builder = new MultipartBodyBuilder();
                 builder.part("chat_id", chatId);
-                builder.part("document", new ByteArrayResource(task.getData()) {
+                builder.part("document", new ByteArrayResource(allBytes) {
                         @Override
                         public String getFilename() {
                                 return task.getFileName() + "." + task.getChunkIndex();
@@ -137,6 +153,15 @@ public class VideoUploadToTelegram {
 
                         sessionManager.removeSession(
                         session.getVideoId());
+                        fileOperation.deleteDirectory(videoFolderMapToChunk.getVideoFolderPath(session.getVideoId()));
+
+
+                        videoFolderMapToChunk.removeVideoFolderPath(session.getVideoId());
+                        
+
+
+                        
+
                         }
                 }
         }

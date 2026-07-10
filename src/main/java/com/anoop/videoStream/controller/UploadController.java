@@ -2,15 +2,19 @@ package com.anoop.videoStream.controller;
 
 import com.anoop.videoStream.Model.ChunkUploadTask;
 import com.anoop.videoStream.Model.FullVideo;
+import com.anoop.videoStream.memory.VideoFolderMapToChunk;
 import com.anoop.videoStream.queue.VideoChunkQueue;
 import com.anoop.videoStream.repository.FullVideoRepo;
+import com.anoop.videoStream.util.FileOperation;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
 
 @RestController
 @CrossOrigin(origins = "*")
@@ -19,27 +23,26 @@ public class UploadController {
     // @Autowired
     // private TelegramUploadService telegramUploadService;
 
-    
     private VideoChunkQueue videoChunkQueue;
     // @Autowired
     // private UploadService uploadService;
 
-
-   
     private FullVideoRepo fullVideoRepo;
 
+    private FileOperation fileOperation;
 
+    private VideoFolderMapToChunk videoFolderMapToChunk;
 
-
- 
-
-    public UploadController(VideoChunkQueue videoChunkQueue, FullVideoRepo fullVideoRepo) {
+    public UploadController(VideoChunkQueue videoChunkQueue, FullVideoRepo fullVideoRepo,
+            FileOperation fileOperation, VideoFolderMapToChunk videoFolderMapToChunk) {
         this.videoChunkQueue = videoChunkQueue;
         this.fullVideoRepo = fullVideoRepo;
-       
+        this.fileOperation = fileOperation;
+        this.videoFolderMapToChunk = videoFolderMapToChunk;
+
     }
 
-    //Map<String, Long> map = new HashMap<>(5);
+    // Map<String, Long> map = new HashMap<>(5);
 
     /**
      * Browser sends one chunk at a time.
@@ -85,14 +88,16 @@ public class UploadController {
         // Read bytes into memory — no disk write at all
         byte[] data = chunk.getBytes();
 
+        Path videoFolderPath = videoFolderMapToChunk.getVideoFolderPath(videoID);
+
+        Path saveChunk = fileOperation.saveChunk(data, videoFolderPath, chunkIndex);
+
         // Submit blocks if 5 buffer slots full — pure backpressure
         String taskToQueue = videoChunkQueue.setTaskToQueue(
-                new ChunkUploadTask(fileName, chunkIndex, data, videoID, totalChunk));
+                new ChunkUploadTask(fileName, chunkIndex, saveChunk, videoID, totalChunk));
         ;
 
         System.out.println(taskToQueue);
-
-       
 
         return ResponseEntity
                 .status(HttpStatus.ACCEPTED)
@@ -107,7 +112,7 @@ public class UploadController {
             @RequestParam("height") Double height,
             @RequestParam("width") Double width,
             @RequestParam("totalChunk") int totalChunk,
-            @RequestParam("totalSize") Long totalSize) {
+            @RequestParam("totalSize") Long totalSize) throws IOException {
 
         FullVideo video = new FullVideo();
         video.setFileName(fileName);
@@ -117,10 +122,15 @@ public class UploadController {
         video.setTotalChunk(totalChunk);
         video.setTotalSize(totalSize);
         video.setVideoID(videoID);
-        
+
+        String uri = "D:\\InfiniStream\\videoStream\\upload";
+        // create folder
+        Path videoFolder = fileOperation.createVideoFolder(videoID, uri);
+        videoFolderMapToChunk.setVideoFolderPath(videoID, videoFolder);
 
         fullVideoRepo.save(video); // <-- THIS was missing
 
         return ResponseEntity.ok("Video registered. Start uploading chunks.");
     }
+
 }

@@ -24,7 +24,6 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
-
 public class DownloadVideoChunk {
 
     @Value("${telegram.bot.token}")
