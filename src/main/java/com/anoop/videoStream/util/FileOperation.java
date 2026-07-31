@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 
 @Component
 public class FileOperation {
@@ -34,6 +33,7 @@ public class FileOperation {
     public void deleteDirectory(Path directory) throws IOException {
 
     try (Stream<Path> paths = Files.walk(directory)) {
+        System.out.println("directory deleted");
 
         List<Path> pathsToDelete = paths
                 .sorted(Comparator.reverseOrder())
@@ -42,6 +42,8 @@ public class FileOperation {
         for (Path path : pathsToDelete) {
             Files.deleteIfExists(path);
         }
+
+        
     }
 }
 }

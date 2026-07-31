@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 
 import com.anoop.videoStream.Model.DownloadVideoTask;
 import com.anoop.videoStream.queue.DownloadVideoChunkQueue;
+import com.anoop.videoStream.queue.StreamingSessionQueue;
 
 import java.io.File;
 import java.io.RandomAccessFile;
@@ -21,10 +22,16 @@ public class VirtualVideoStreamService {
 
         private DownloadVideoChunkQueue downloadVideoChunkQueue;
 
+        private StreamingSessionQueue streamingSessionQueue;
+
+
+
         public VirtualVideoStreamService(DownloadVideoChunk downloadVideoChunk,
-                        DownloadVideoChunkQueue downloadVideoChunkQueue) {
+                        DownloadVideoChunkQueue downloadVideoChunkQueue,
+                        StreamingSessionQueue streamingSessionQueue) {
                 this.downloadVideoChunk = downloadVideoChunk;
                 this.downloadVideoChunkQueue = downloadVideoChunkQueue;
+                this.streamingSessionQueue = streamingSessionQueue;
         }
 
         public void streamVideo(String videoID, long start, long end, OutputStream outputStream) throws Exception {
@@ -86,9 +93,7 @@ public class VirtualVideoStreamService {
                          * Open chunk
                          */
 
-                        if (!chunkFile.exists()) {
-
-                        }
+        
                         RandomAccessFile raf = new RandomAccessFile(chunkFile, "r");
 
                         /*
@@ -128,9 +133,13 @@ public class VirtualVideoStreamService {
                                 start += bytesRead;
 
                                 bytesRemaining -= bytesRead;
+
+                                 
                         }
                         outputStream.flush();
+                        streamingSessionQueue.setStreamSession(videoID, System.currentTimeMillis());
 
+                       
                         raf.close();
                 }
         }

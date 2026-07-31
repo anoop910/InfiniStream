@@ -2,6 +2,7 @@ package com.anoop.videoStream.stream.streamService;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -98,22 +99,25 @@ public class DownloadVideoChunk {
     }
 
     public void downloadChunkByIndex(String videoID, int index) {
-        
+        System.out.println("step 1");
         StreamSession session = streamSessionManager.getOrCreateStreamSession(videoID);
         if (index != session.getVideoChunks().size()) {
-            VideoChunk videoChunk = session.getVideoChunks().get(index);
-
-            String telegramFileId = videoChunk.getTelegramFileId();
-            System.out.println("Downloading chunk " + index + " file_id: " + telegramFileId);
-            String filePath = getFilePath(telegramFileId);
-            byte[] data = downloadChunk(filePath);
-            System.out.println("video is downloaded");
             try {
+                System.out.println("step 2");
+                VideoChunk videoChunk = session.getVideoChunks().get(index);
+                System.out.println("step 3");
+                String telegramFileId = videoChunk.getTelegramFileId();
+                System.out.println("Downloading chunk " + index + " file_id: " + telegramFileId);
+                String filePath = getFilePath(telegramFileId);
+                byte[] data = downloadChunk(filePath);
+                System.out.println("video is downloaded");
+
                 Path videoFolder = createVideoFolder(videoID);
                 System.out.println("folder is created");
                 saveChunk(data, videoFolder, index);
-            } catch (IOException e) {
-
+            } catch (IOException | IndexOutOfBoundsException  e) {
+                System.out.println("Exception come from download chunk Fuction");
+                streamSessionManager.removeSession(videoID);
                 e.printStackTrace();
             }
         }

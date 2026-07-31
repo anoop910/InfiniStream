@@ -1,5 +1,7 @@
 package com.anoop.videoStream.controller;
 
+import java.io.IOException;
+import java.nio.file.Path;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -17,8 +19,7 @@ import com.anoop.videoStream.memory.StreamSession;
 import com.anoop.videoStream.memory.StreamSessionManager;
 import com.anoop.videoStream.stream.streamService.DownloadVideoChunk;
 import com.anoop.videoStream.stream.streamService.VirtualVideoStreamService;
-
-
+import com.anoop.videoStream.util.FileOperation;
 
 @RestController
 public class VideoStreamController {
@@ -28,18 +29,15 @@ public class VideoStreamController {
     private DownloadVideoChunk downloadVideoChunk;
 
     private StreamSessionManager sessionManager;
-
-    
-
-   
+    private FileOperation fileOperation;
 
     public VideoStreamController(VirtualVideoStreamService streamService, DownloadVideoChunk downloadVideoChunk,
-            StreamSessionManager sessionManager) {
+            StreamSessionManager sessionManager, FileOperation fileOperation) {
         this.streamService = streamService;
         this.downloadVideoChunk = downloadVideoChunk;
         this.sessionManager = sessionManager;
+        this.fileOperation = fileOperation;
     }
-
 
     // ORIGINAL FILE SIZE
     // Store this in DB in production
@@ -47,13 +45,12 @@ public class VideoStreamController {
 
     @GetMapping("/video/{videoID}")
     public ResponseEntity<StreamingResponseBody> streamVideo(@PathVariable String videoID,
-            @RequestHeader(value = "Range", required = false) String rangeHeader) {
+            @RequestHeader(value = "Range", required = false) String rangeHeader) throws IOException {
 
         System.out.println("Request range :" + rangeHeader);
+        
 
-       StreamSession orCreateStreamSession = sessionManager.getOrCreateStreamSession(videoID);
-    
-
+        StreamSession orCreateStreamSession = sessionManager.getOrCreateStreamSession(videoID);
         try {
 
             FILE_SIZE = orCreateStreamSession.getTotalSize();
@@ -95,14 +92,20 @@ public class VideoStreamController {
             long finalEnd = end;
             System.out.println("final end  " + finalEnd);
 
+            Boolean isLastChunk = finalEnd >= FILE_SIZE -1;
+
+           
+
             StreamingResponseBody responseBody = outputStream -> {
 
                 try {
                     streamService.streamVideo(videoID, finalStart, finalEnd, outputStream);
+
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             };
+           
 
             HttpHeaders headers = new HttpHeaders();
 
@@ -111,6 +114,10 @@ public class VideoStreamController {
             headers.add("Content-Range", "bytes " + start + "-" + end + "/" + FILE_SIZE);
 
             headers.setContentLength(contentLength);
+            //  if (isLastChunk) {
+            //     Path path = Path.of("D:\\InfiniStream\\videoStream" , videoID);
+            //     fileOperation.deleteDirectory(path);
+            // }
 
             return ResponseEntity.status(HttpStatus.PARTIAL_CONTENT).headers(headers)
                     .contentType(MediaType.parseMediaType("video/mp4"))
@@ -124,7 +131,6 @@ public class VideoStreamController {
         }
     }
 
-    
     @GetMapping("/stream/{videoId}")
     public void streamVideo(
             @PathVariable String videoId) throws Exception {

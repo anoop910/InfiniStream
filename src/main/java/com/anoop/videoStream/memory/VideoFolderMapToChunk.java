@@ -3,6 +3,7 @@ package com.anoop.videoStream.memory;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Component;
 
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Component;
 public class VideoFolderMapToChunk {
     
 
-    Map<String, Path> videoFolder = new HashMap<>();
+    ConcurrentHashMap<String, Path> videoFolder = new ConcurrentHashMap<>();
 
 
     public void setVideoFolderPath(String videoId, Path path){
