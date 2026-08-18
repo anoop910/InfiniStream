@@ -147,7 +147,7 @@ public class AuthenticationController {
                             .httpOnly(true)
 
                             // localhost testing
-                            .secure(false)
+                            .secure(true)
 
                             .sameSite("Lax")
 
@@ -204,7 +204,7 @@ public class AuthenticationController {
                                 ""
                         )
                         .httpOnly(true)
-                        .secure(false)
+                        .secure(true)
                         .sameSite("Lax")
                         .path("/")
                         .maxAge(0)
@@ -220,7 +220,7 @@ public class AuthenticationController {
                                 ""
                         )
                         .httpOnly(true)
-                        .secure(false)
+                        .secure(true)
                         .sameSite("Lax")
                         .path("/")
                         .maxAge(0)

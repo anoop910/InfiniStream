@@ -145,7 +145,7 @@ public class AuthenticationService {
                 ResponseCookie accessCookie = ResponseCookie
                                 .from("access_token", jwt)
                                 .httpOnly(true)
-                                .secure(false) // localhost
+                                .secure(true) // localhost
                                 .sameSite("Lax")
                                 .path("/")
                                 .maxAge(Duration.ofMinutes(15))
@@ -154,7 +154,7 @@ public class AuthenticationService {
                 ResponseCookie refreshCookie = ResponseCookie
                                 .from("refresh_token", refreshToken)
                                 .httpOnly(true)
-                                .secure(false) // localhost
+                                .secure(true) // localhost
                                 .sameSite("Lax")
                                 .path("/")
                                 .maxAge(Duration.ofDays(7))
