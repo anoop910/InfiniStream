@@ -29,6 +29,8 @@ public class DownloadVideoChunk {
 
     @Value("${telegram.bot.token}")
     private String botToken;
+    @Value("${video.storage.path}")
+    private String videoStoragePath;
 
     private TelegramWebClientConfig telegramWebClientConfig;
 
@@ -115,7 +117,8 @@ public class DownloadVideoChunk {
                 Path videoFolder = createVideoFolder(videoID);
                 System.out.println("folder is created");
                 saveChunk(data, videoFolder, index);
-            } catch (IOException | IndexOutOfBoundsException  e) {
+
+            } catch (Exception e) {
                 System.out.println("Exception come from download chunk Fuction");
                 streamSessionManager.removeSession(videoID);
                 e.printStackTrace();
@@ -128,7 +131,7 @@ public class DownloadVideoChunk {
             throws IOException {
 
         Path folder = Paths.get(
-                "D:\\InfiniStream\\videoStream",
+                videoStoragePath,
                 videoId);
         Files.createDirectories(folder);
 

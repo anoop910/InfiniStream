@@ -4,6 +4,7 @@ import com.anoop.videoStream.telegramService.DatabaseFlushService;
 
 import java.util.List;
 
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,8 +24,12 @@ public class VideoMetadataController {
     }
 
     @GetMapping("/get/myvideo")
-    public List<GetMyVideoResponse> getMyAllVideos(){
-        return videoMetadataService.getMyVideo();
+    public List<GetMyVideoResponse> getMyAllVideos(Authentication authentication){
+        String user = authentication.getName();
+        Long userId = Long.parseLong(user);
+        System.out.println(userId);
+       
+        return videoMetadataService.getMyVideo(userId);
     }
 
     

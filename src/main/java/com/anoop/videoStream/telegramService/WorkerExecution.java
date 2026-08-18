@@ -62,6 +62,7 @@ public class WorkerExecution {
                 
 
                 downloadVideoChunk.downloadChunkByIndex(videoId, index);
+                downloadVideoChunkQueue.removeSetQueue(taskToQueue);
             } catch (Exception e) {
                e.printStackTrace();
             }

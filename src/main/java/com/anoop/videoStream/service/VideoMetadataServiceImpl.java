@@ -21,9 +21,9 @@ public class VideoMetadataServiceImpl implements VideoMetadataService {
 
 
     @Override
-    public List<GetMyVideoResponse> getMyVideo() {
+    public List<GetMyVideoResponse> getMyVideo(Long userId) {
 
-        return fullVideoRepo.getMyVideos();
+        return fullVideoRepo.getMyVideos(userId);
         
     }
     

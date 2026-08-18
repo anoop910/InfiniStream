@@ -5,17 +5,15 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.anoop.videoStream.Model.FullVideo;
 import com.anoop.videoStream.dto.GetMyVideoResponse;
 
+public interface FullVideoRepo extends JpaRepository<FullVideo, Long> {
+    Optional<FullVideo> findByVideoID(String videoID);
 
-
-public interface FullVideoRepo extends JpaRepository<FullVideo, Long>{
-     Optional<FullVideo> findByVideoID(String videoID);
-
-
-     @Query("""
+    @Query("""
             SELECT new com.anoop.videoStream.dto.GetMyVideoResponse(
                 f.fileName,
                 f.videoID,
@@ -24,6 +22,9 @@ public interface FullVideoRepo extends JpaRepository<FullVideo, Long>{
                 f.duration
             )
             FROM FullVideo f
+            WHERE f.user.id = :userId
+            AND f.completedAt IS NOT NULL
             """)
-    List<GetMyVideoResponse> getMyVideos();
+    List<GetMyVideoResponse> getMyVideos(
+            @Param("userId") Long userId);
 }

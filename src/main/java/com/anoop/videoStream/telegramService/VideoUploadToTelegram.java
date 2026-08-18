@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
@@ -79,7 +80,7 @@ public class VideoUploadToTelegram {
                                 "UPLOADING..." + LocalTime.now().format(formatter) + " " + task.getFileName() + " "
                                                 + task.getChunkIndex());
 
-
+                LocalDateTime uploadStratedAt = LocalDateTime.now();
                 Path path = task.getPath(); 
                 byte[] allBytes = Files.readAllBytes(path);                               
                 MultipartBodyBuilder builder = new MultipartBodyBuilder();
@@ -109,6 +110,8 @@ public class VideoUploadToTelegram {
                                 })
                                 .block();
 
+                LocalDateTime uploadCompletedAt = LocalDateTime.now();
+
 
                 System.out.println("UPLOAD DONE " + LocalTime.now().format(formatter) + " " + task.getFileName() + " "
                                                 + task.getChunkIndex());
@@ -131,6 +134,8 @@ public class VideoUploadToTelegram {
                         chunk.setTelegramUniqueId(response.getResult().getDocument().getFile_unique_id());
 
                         chunk.setRetryCount(task.getRetryCount());
+                        chunk.setUploadStartedAt(uploadStratedAt);
+                        chunk.setUploadCompletedAt(uploadCompletedAt);
 
                         chunk.setVideoID(task.getVideoID());
                         chunk.setFullVideo(session.getVideo());

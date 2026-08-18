@@ -1,8 +1,10 @@
 package com.anoop.videoStream.stream.streamService;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.anoop.videoStream.Model.DownloadVideoTask;
+import com.anoop.videoStream.exception.ChunkNotReadyException;
 import com.anoop.videoStream.queue.DownloadVideoChunkQueue;
 import com.anoop.videoStream.queue.StreamingSessionQueue;
 
@@ -13,33 +15,49 @@ import java.io.OutputStream;
 @Service
 public class VirtualVideoStreamService {
 
-        // SAME chunk size used during upload
+        @Value("${video.storage.path}")
+        private String videoStoragePath;
+
         private static final long CHUNK_SIZE = 1024 * 1024; // 1 MB
 
         private static final int BUFFER_SIZE = 64 * 1024; // 64 KB
 
-        private DownloadVideoChunk downloadVideoChunk;
+        // Maximum time to wait for Telegram downloader
+        private static final long CHUNK_WAIT_TIMEOUT = 30000;
 
-        private DownloadVideoChunkQueue downloadVideoChunkQueue;
+        // Check every 100 ms
+        private static final long CHUNK_CHECK_INTERVAL = 100;
 
-        private StreamingSessionQueue streamingSessionQueue;
+        private final DownloadVideoChunk downloadVideoChunk;
 
+        private final DownloadVideoChunkQueue downloadVideoChunkQueue;
 
+        private final StreamingSessionQueue streamingSessionQueue;
 
-        public VirtualVideoStreamService(DownloadVideoChunk downloadVideoChunk,
+        public VirtualVideoStreamService(
+                        DownloadVideoChunk downloadVideoChunk,
                         DownloadVideoChunkQueue downloadVideoChunkQueue,
                         StreamingSessionQueue streamingSessionQueue) {
+
                 this.downloadVideoChunk = downloadVideoChunk;
                 this.downloadVideoChunkQueue = downloadVideoChunkQueue;
                 this.streamingSessionQueue = streamingSessionQueue;
         }
 
-        public void streamVideo(String videoID, long start, long end, OutputStream outputStream) throws Exception {
+        public void streamVideo(
+                        String videoID,
+                        long start,
+                        long end,
+                        OutputStream outputStream) throws Exception {
+
                 System.out.println("file name : " + videoID);
                 System.out.println("start : " + start);
-                System.out.println("end :" + end);
+                System.out.println("end : " + end);
+
                 long bytesRemaining = end - start + 1;
-                System.out.println("Remaining bytes :" + bytesRemaining);
+
+                System.out.println(
+                                "Remaining bytes : " + bytesRemaining);
 
                 byte[] buffer = new byte[BUFFER_SIZE];
 
@@ -51,97 +69,175 @@ public class VirtualVideoStreamService {
                         long chunkIndex = start / CHUNK_SIZE;
 
                         /*
-                         * Offset INSIDE chunk
+                         * Offset inside chunk
                          */
                         long offsetInsideChunk = start % CHUNK_SIZE;
+
+                        int index = (int) chunkIndex;
+
+                        System.out.println(
+                                        "Browser wants chunk : " + index);
 
                         /*
                          * Chunk file
                          */
+                        File chunkFile = new File(
+                                        videoID
+                                                        + "/chunk_"
+                                                        + chunkIndex
+                                                        + ".mp4."
+                                                        + chunkIndex);
 
-                        System.out.println("Browser wants chunk : " + chunkIndex);
-
-                        int index = (int) chunkIndex;
-
-                        File chunkFile = new File(videoID + "/" + "chunk_" + chunkIndex + ".mp4" + "." + chunkIndex);
-
+                        /*
+                         * ==========================================
+                         * CHUNK NOT AVAILABLE
+                         * ==========================================
+                         */
                         if (!chunkFile.exists()) {
 
+                                System.out.println(
+                                                "Chunk " + index + " not available");
+
+                                /*
+                                 * Request download
+                                 */
+
                                 for (int i = 0; i < 2; i++) {
+
                                         DownloadVideoTask task = new DownloadVideoTask();
+
                                         task.setIndex(index + i);
                                         task.setVideoId(videoID);
 
-                                        downloadVideoChunkQueue.setTaskToQueue(task);
-
-                                }
-
-                                long startWait = System.currentTimeMillis();
-
-                                while (!chunkFile.exists()) {
-
-                                        if (System.currentTimeMillis() - startWait > 30000) {
-                                                throw new RuntimeException(
-                                                                "Timeout waiting for chunk " + index);
-                                        }
-
-                                        Thread.sleep(100);
-                                }
-                        }
-
-                        /*
-                         * Open chunk
-                         */
-
-        
-                        RandomAccessFile raf = new RandomAccessFile(chunkFile, "r");
-
-                        /*
-                         * Jump to exact position
-                         */
-                        raf.seek(offsetInsideChunk);
-
-                        /*
-                         * Remaining bytes in current chunk
-                         */
-                        long remainingInChunk = CHUNK_SIZE - offsetInsideChunk;
-
-                        /*
-                         * How many bytes should read NOW
-                         */
-                        long bytesToRead = Math.min(remainingInChunk, bytesRemaining);
-
-                        long totalReadFromChunk = 0;
-
-                        while (totalReadFromChunk < bytesToRead) {
-
-                                int currentReadSize = (int) Math.min(buffer.length, bytesToRead - totalReadFromChunk);
-
-                                int bytesRead = raf.read(buffer, 0, currentReadSize);
-
-                                if (bytesRead == -1) {
-                                        break;
+                                        downloadVideoChunkQueue.addTask(task);
                                 }
 
                                 /*
-                                 * Send directly to browser
+                                 * Wait for downloader
                                  */
-                                outputStream.write(buffer, 0, bytesRead);
-
-                                totalReadFromChunk += bytesRead;
-
-                                start += bytesRead;
-
-                                bytesRemaining -= bytesRead;
-
-                                 
+                                waitForChunk(
+                                                chunkFile,
+                                                index);
                         }
-                        outputStream.flush();
-                        streamingSessionQueue.setStreamSession(videoID, System.currentTimeMillis());
 
-                       
-                        raf.close();
+                        /*
+                         * ==========================================
+                         * CHUNK IS AVAILABLE
+                         * ==========================================
+                         */
+
+                        System.out.println(
+                                        "Chunk " + index + " available");
+
+                        try (
+                                        RandomAccessFile raf = new RandomAccessFile(
+                                                        chunkFile,
+                                                        "r")) {
+
+                                /*
+                                 * Move to correct position
+                                 */
+                                raf.seek(offsetInsideChunk);
+
+                                /*
+                                 * Remaining bytes in this chunk
+                                 */
+                                long remainingInChunk = CHUNK_SIZE - offsetInsideChunk;
+
+                                /*
+                                 * But last chunk may be smaller
+                                 */
+                                long actualChunkSize = raf.length();
+
+                                remainingInChunk = Math.min(
+                                                remainingInChunk,
+                                                actualChunkSize
+                                                                - offsetInsideChunk);
+
+                                /*
+                                 * Bytes to read
+                                 */
+                                long bytesToRead = Math.min(
+                                                remainingInChunk,
+                                                bytesRemaining);
+
+                                long totalReadFromChunk = 0;
+
+                                /*
+                                 * Read chunk
+                                 */
+                                while (totalReadFromChunk < bytesToRead) {
+
+                                        int currentReadSize = (int) Math.min(
+                                                        buffer.length,
+                                                        bytesToRead
+                                                                        - totalReadFromChunk);
+
+                                        int bytesRead = raf.read(
+                                                        buffer,
+                                                        0,
+                                                        currentReadSize);
+
+                                        if (bytesRead == -1) {
+                                                break;
+                                        }
+
+                                        /*
+                                         * Send data to browser
+                                         */
+                                        outputStream.write(
+                                                        buffer,
+                                                        0,
+                                                        bytesRead);
+
+                                        totalReadFromChunk += bytesRead;
+
+                                        start += bytesRead;
+
+                                        bytesRemaining -= bytesRead;
+                                }
+                        }
+
+                        outputStream.flush();
+
+                        streamingSessionQueue.setStreamSession(
+                                        videoID,
+                                        System.currentTimeMillis());
                 }
         }
 
+        /*
+         * ==========================================
+         * WAIT FOR CHUNK
+         * ==========================================
+         */
+
+        private void waitForChunk(
+                        File chunkFile,
+                        int index) throws InterruptedException {
+
+                long startWait = System.currentTimeMillis();
+
+                while (!chunkFile.exists()) {
+
+                        long elapsed = System.currentTimeMillis() - startWait;
+
+                        /*
+                         * Timeout
+                         */
+                        if (elapsed >= CHUNK_WAIT_TIMEOUT) {
+
+                                System.out.println("Timeout waiting for chunk " + index);
+
+                                throw new ChunkNotReadyException("Chunk " + index + " is still downloading");
+                        }
+
+                        Thread.sleep(CHUNK_CHECK_INTERVAL);
+                }
+
+                System.out.println(
+                                "Chunk "
+                                                + index
+                                                + " downloaded successfully");
+        }
 }

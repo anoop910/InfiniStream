@@ -2,18 +2,25 @@ package com.anoop.videoStream.controller;
 
 import com.anoop.videoStream.Model.ChunkUploadTask;
 import com.anoop.videoStream.Model.FullVideo;
+import com.anoop.videoStream.Model.User;
+import com.anoop.videoStream.dto.CreateVideo;
 import com.anoop.videoStream.memory.VideoFolderMapToChunk;
 import com.anoop.videoStream.queue.VideoChunkQueue;
 import com.anoop.videoStream.repository.FullVideoRepo;
+import com.anoop.videoStream.repository.UserRepository;
 import com.anoop.videoStream.util.FileOperation;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Optional;
 
 import org.aspectj.lang.annotation.RequiredTypes;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,13 +40,15 @@ public class UploadController {
     private FileOperation fileOperation;
 
     private VideoFolderMapToChunk videoFolderMapToChunk;
+    private UserRepository userRepository;
 
     public UploadController(VideoChunkQueue videoChunkQueue, FullVideoRepo fullVideoRepo,
-            FileOperation fileOperation, VideoFolderMapToChunk videoFolderMapToChunk) {
+            FileOperation fileOperation, VideoFolderMapToChunk videoFolderMapToChunk, UserRepository userRepository) {
         this.videoChunkQueue = videoChunkQueue;
         this.fullVideoRepo = fullVideoRepo;
         this.fileOperation = fileOperation;
         this.videoFolderMapToChunk = videoFolderMapToChunk;
+        this.userRepository = userRepository;
 
     }
 
@@ -106,32 +115,38 @@ public class UploadController {
     }
 
     @PostMapping("/uploadvideo")
-    public ResponseEntity<String> createVideoEntity(
-            @RequestParam("fileName") String fileName,
-            @RequestParam("videoDuration") Double videoDuration,
-            @RequestParam("videoID") String videoID,
-            @RequestParam("height") Double height,
-            @RequestParam("width") Double width,
-            @RequestParam("totalChunk") int totalChunk,
-            @RequestParam("totalSize") Long totalSize) throws IOException {
+    public ResponseEntity<String> createVideoEntity(@RequestBody CreateVideo createVideo,
+            Authentication authentication) throws IOException {
 
         FullVideo video = new FullVideo();
-        video.setFileName(fileName);
-        video.setDuration(videoDuration);
-        video.setHeight(height);
-        video.setWidth(width);
-        video.setTotalChunk(totalChunk);
-        video.setTotalSize(totalSize);
-        video.setVideoID(videoID);
+        video.setFileName(createVideo.getFileName());
+        video.setDuration(createVideo.getVideoDuration());
+        video.setHeight(createVideo.getHeight());
+        video.setWidth(createVideo.getWidth());
+        video.setTotalChunk(createVideo.getTotalChunk());
+        video.setTotalSize(createVideo.getTotalSize());
+        video.setVideoID(createVideo.getVideoID());
+        String user = authentication.getName();
+        Long userId = Long.parseLong(user);
+        User userById = userRepository.findById(userId).get();
+        video.setUser(userById);
 
-        String uri = "D:\\InfiniStream\\videoStream\\upload";
+       
+
+     
+        String uri = "./upload";
         // create folder
-        Path videoFolder = fileOperation.createVideoFolder(videoID, uri);
-        videoFolderMapToChunk.setVideoFolderPath(videoID, videoFolder);
+        Path videoFolder = fileOperation.createVideoFolder(createVideo.getVideoID(), uri);
+        videoFolderMapToChunk.setVideoFolderPath(createVideo.getVideoID(), videoFolder);
 
         fullVideoRepo.save(video); // <-- THIS was missing
 
         return ResponseEntity.ok("Video registered. Start uploading chunks.");
+    }
+
+    @GetMapping("/test")
+    public String testAuthencation(){
+    return "App Running";
     }
 
 }
