@@ -146,7 +146,7 @@ public class AuthenticationService {
                                 .from("access_token", jwt)
                                 .httpOnly(true)
                                 .secure(true) // localhost
-                                .sameSite("Lax")
+                                .sameSite("None")
                                 .path("/")
                                 .maxAge(Duration.ofMinutes(15))
                                 .build();
@@ -155,7 +155,7 @@ public class AuthenticationService {
                                 .from("refresh_token", refreshToken)
                                 .httpOnly(true)
                                 .secure(true) // localhost
-                                .sameSite("Lax")
+                                .sameSite("None")
                                 .path("/")
                                 .maxAge(Duration.ofDays(7))
                                 .build();

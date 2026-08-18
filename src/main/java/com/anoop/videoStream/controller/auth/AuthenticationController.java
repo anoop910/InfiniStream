@@ -149,7 +149,7 @@ public class AuthenticationController {
                             // localhost testing
                             .secure(true)
 
-                            .sameSite("Lax")
+                            .sameSite("None")
 
                             .path("/")
 
@@ -205,7 +205,7 @@ public class AuthenticationController {
                         )
                         .httpOnly(true)
                         .secure(true)
-                        .sameSite("Lax")
+                        .sameSite("None")
                         .path("/")
                         .maxAge(0)
                         .build();
@@ -221,7 +221,7 @@ public class AuthenticationController {
                         )
                         .httpOnly(true)
                         .secure(true)
-                        .sameSite("Lax")
+                        .sameSite("None")
                         .path("/")
                         .maxAge(0)
                         .build();
