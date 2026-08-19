@@ -6,6 +6,11 @@ public class TelegramResponse {
 
     private Result result;
 
+    @Override
+    public String toString() {
+        return "TelegramResponse [ok=" + ok + ", result=" + result + "]";
+    }
+
     public boolean isOk() {
         return ok;
     }

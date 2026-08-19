@@ -1,6 +1,7 @@
 package com.anoop.videoStream.telegramService;
 
 import com.anoop.videoStream.memory.VideoFolderMapToChunk;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,39 +28,17 @@ import com.anoop.videoStream.util.FileOperation;
 
 import reactor.util.retry.Retry;
 
-@Component
+import tools.jackson.databind.JsonNode;
 
+@Component
 public class VideoUploadToTelegram {
 
         private final VideoFolderMapToChunk videoFolderMapToChunk;
-
-
-        private TelegramWebClientConfig telegramWebClientConfig;
-
-
-        private UploadSessionManager sessionManager;
-
-        private DatabaseFlushService databaseFlushService;
-
-        private RetryQueue retryQueue;
-
-        private FileOperation fileOperation;
-
-
-
-
-       
-
-        public VideoUploadToTelegram(TelegramWebClientConfig telegramWebClientConfig,
-                        UploadSessionManager sessionManager, DatabaseFlushService databaseFlushService,
-                        RetryQueue retryQueue, VideoFolderMapToChunk videoFolderMapToChunk, FileOperation fileOperation) {
-                this.telegramWebClientConfig = telegramWebClientConfig;
-                this.sessionManager = sessionManager;
-                this.databaseFlushService = databaseFlushService;
-                this.retryQueue = retryQueue;
-                this.videoFolderMapToChunk = videoFolderMapToChunk;
-                this.fileOperation = fileOperation;
-        }
+        private final TelegramWebClientConfig telegramWebClientConfig;
+        private final UploadSessionManager sessionManager;
+        private final DatabaseFlushService databaseFlushService;
+        private final RetryQueue retryQueue;
+        private final FileOperation fileOperation;
 
         @Value("${telegram.bot.token}")
         private String botToken;
@@ -70,41 +49,124 @@ public class VideoUploadToTelegram {
         @Value("${telegram.upload.retry}")
         private int uploadRetry;
 
-        // @Autowired
-        // private UploadService uploadService;
+        private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+        public VideoUploadToTelegram(
+                        TelegramWebClientConfig telegramWebClientConfig,
+                        UploadSessionManager sessionManager,
+                        DatabaseFlushService databaseFlushService,
+                        RetryQueue retryQueue,
+                        VideoFolderMapToChunk videoFolderMapToChunk,
+                        FileOperation fileOperation) {
 
-        public void uploadToTelegram(ChunkUploadTask task) throws IOException {
+                this.telegramWebClientConfig = telegramWebClientConfig;
+
+                this.sessionManager = sessionManager;
+
+                this.databaseFlushService = databaseFlushService;
+
+                this.retryQueue = retryQueue;
+
+                this.videoFolderMapToChunk = videoFolderMapToChunk;
+
+                this.fileOperation = fileOperation;
+        }
+
+        /*
+         * ============================================================
+         * MAIN UPLOAD METHOD
+         * ============================================================
+         */
+
+        public void uploadToTelegram(
+                        ChunkUploadTask task)
+                        throws IOException {
+
                 System.out.println(
-                                "UPLOADING..." + LocalTime.now().format(formatter) + " " + task.getFileName() + " "
+                                "UPLOADING..."
+                                                + LocalTime.now().format(formatter)
+                                                + " "
+                                                + task.getFileName()
+                                                + " "
                                                 + task.getChunkIndex());
 
-                LocalDateTime uploadStratedAt = LocalDateTime.now();
-                Path path = task.getPath(); 
-                byte[] allBytes = Files.readAllBytes(path);                               
-                MultipartBodyBuilder builder = new MultipartBodyBuilder();
-                builder.part("chat_id", chatId);
-                builder.part("document", new ByteArrayResource(allBytes) {
-                        @Override
-                        public String getFilename() {
-                                return task.getFileName() + "." + task.getChunkIndex();
-                        }
-                });
+                LocalDateTime uploadStartedAt = LocalDateTime.now();
 
-                TelegramResponse response = telegramWebClientConfig.getWebClient()
+                Path path = task.getPath();
+
+                /*
+                 * ========================================================
+                 * CURRENT LOGIC
+                 * ========================================================
+                 *
+                 * You are using readAllBytes().
+                 *
+                 * For your current 1 MB chunks this is acceptable,
+                 * although later we can optimize this further to
+                 * avoid loading the whole chunk into a byte[].
+                 */
+
+                byte[] allBytes = Files.readAllBytes(path);
+
+                MultipartBodyBuilder builder = new MultipartBodyBuilder();
+
+                builder.part(
+                                "chat_id",
+                                chatId);
+
+                builder.part(
+                                "document",
+                                new ByteArrayResource(allBytes) {
+
+                                        @Override
+                                        public String getFilename() {
+
+                                                return task.getFileName()
+                                                                + "."
+                                                                + task.getChunkIndex();
+                                        }
+                                });
+
+                /*
+                 * ========================================================
+                 * TELEGRAM sendDocument
+                 * ========================================================
+                 */
+
+                TelegramResponse response = telegramWebClientConfig
+                                .getWebClient()
                                 .post()
-                                .uri("/bot" + botToken + "/sendDocument")
-                                .contentType(MediaType.MULTIPART_FORM_DATA)
-                                .body(BodyInserters.fromMultipartData(builder.build()))
+                                .uri(
+                                                "/bot"
+                                                                + botToken
+                                                                + "/sendDocument")
+                                .contentType(
+                                                MediaType.MULTIPART_FORM_DATA)
+                                .body(
+                                                BodyInserters
+                                                                .fromMultipartData(
+                                                                                builder.build()))
                                 .retrieve()
-                                .bodyToMono(TelegramResponse.class)
-                                .timeout(Duration.ofSeconds(60))
-                                .retryWhen(Retry.fixedDelay(uploadRetry, Duration.ofSeconds(1)))
+                                .bodyToMono(
+                                                TelegramResponse.class)
+                                .timeout(
+                                                Duration.ofSeconds(60))
+                                .retryWhen(
+                                                Retry.fixedDelay(
+                                                                uploadRetry,
+                                                                Duration.ofSeconds(1)))
                                 .doOnError(error -> {
+
                                         try {
-                                                retryQueue.setRetryTask(task);
+
+                                                retryQueue.setRetryTask(
+                                                                task);
+
                                         } catch (InterruptedException e) {
+
+                                                Thread.currentThread()
+                                                                .interrupt();
+
                                                 e.printStackTrace();
                                         }
                                 })
@@ -112,63 +174,275 @@ public class VideoUploadToTelegram {
 
                 LocalDateTime uploadCompletedAt = LocalDateTime.now();
 
+                /*
+                 * ========================================================
+                 * CHECK TELEGRAM RESPONSE
+                 * ========================================================
+                 */
 
-                System.out.println("UPLOAD DONE " + LocalTime.now().format(formatter) + " " + task.getFileName() + " "
+                if (response == null ||
+                                !response.isOk() ||
+                                response.getResult() == null ||
+                                response.getResult().getDocument() == null) {
+
+                        throw new IOException(
+                                        "Telegram upload failed for chunk "
+                                                        + task.getChunkIndex());
+                }
+
+                /*
+                 * ========================================================
+                 * GET TELEGRAM FILE ID
+                 * ========================================================
+                 */
+
+                String telegramFileId = response
+                                .getResult()
+                                .getDocument()
+                                .getFile_id();
+
+                String telegramUniqueId = response
+                                .getResult()
+                                .getDocument()
+                                .getFile_unique_id();
+
+                System.out.println(
+                                "UPLOAD DONE "
+                                                + LocalTime.now().format(formatter)
+                                                + " "
+                                                + task.getFileName()
+                                                + " "
                                                 + task.getChunkIndex());
-                System.out.println("UPLOADED " +
-                                                LocalTime.now().format(formatter) + " " +
-                                                response.isOk() + " " +
-                                                response.getResult().getDocument().getFile_id() + " " +
-                                                response.getResult().getDocument().getFile_unique_id());
 
-                if (response.isOk()) {
+                System.out.println(
+                                "TELEGRAM FILE ID : "
+                                                + telegramFileId);
 
-                        UploadSession session = sessionManager.getOrCreateSession(task.getVideoID(), task.getFileName(), task.getTotalChunk());
+                System.out.println(
+                                "TELEGRAM UNIQUE ID : "
+                                                + telegramUniqueId);
 
-                        VideoChunk chunk = new VideoChunk();
+                /*
+                 * ========================================================
+                 * NEW:
+                 *
+                 * GET file_path NOW
+                 *
+                 * This happens once at upload time.
+                 * It will NOT be required during normal streaming.
+                 * ========================================================
+                 */
 
-                        chunk.setChunkIndex(task.getChunkIndex());
+                String telegramFilePath = getTelegramFilePath(
+                                telegramFileId);
 
-                        chunk.setTelegramFileId(response.getResult().getDocument().getFile_id());
+                System.out.println(
+                                "TELEGRAM FILE PATH : "
+                                                + telegramFilePath);
 
-                        chunk.setTelegramUniqueId(response.getResult().getDocument().getFile_unique_id());
+                /*
+                 * ========================================================
+                 * CREATE UPLOAD SESSION
+                 * ========================================================
+                 */
 
-                        chunk.setRetryCount(task.getRetryCount());
-                        chunk.setUploadStartedAt(uploadStratedAt);
-                        chunk.setUploadCompletedAt(uploadCompletedAt);
+                UploadSession session = sessionManager.getOrCreateSession(
+                                task.getVideoID(),
+                                task.getFileName(),
+                                task.getTotalChunk());
 
-                        chunk.setVideoID(task.getVideoID());
-                        chunk.setFullVideo(session.getVideo());
-                        
+                /*
+                 * ========================================================
+                 * CREATE VideoChunk
+                 * ========================================================
+                 */
 
-                        session.getChunks().put(task.getChunkIndex(),chunk);
+                VideoChunk chunk = new VideoChunk();
 
-                        int uploaded = session.getUploadedChunks().incrementAndGet();
+                chunk.setChunkIndex(
+                                task.getChunkIndex());
 
-                        System.out.println("Video : " + task.getVideoID()
-                                                        + " Uploaded : "
-                                                        + uploaded
-                                                        + "/"
-                                                        + session.getTotalChunks());
+                /*
+                 * Telegram information
+                 */
 
-                        if (uploaded == session.getTotalChunks()) {
+                chunk.setTelegramFileId(
+                                telegramFileId);
+
+                chunk.setTelegramUniqueId(
+                                telegramUniqueId);
+
+                /*
+                 * NEW
+                 *
+                 * Save file_path.
+                 */
+
+                chunk.setTelegramFilePath(
+                                telegramFilePath);
+
+                /*
+                 * Existing information
+                 */
+
+                chunk.setRetryCount(
+                                task.getRetryCount());
+
+                chunk.setUploadStartedAt(
+                                uploadStartedAt);
+
+                chunk.setUploadCompletedAt(
+                                uploadCompletedAt);
+
+                chunk.setVideoID(
+                                task.getVideoID());
+
+                chunk.setFullVideo(
+                                session.getVideo());
+
+                /*
+                 * ========================================================
+                 * ADD TO MEMORY
+                 * ========================================================
+                 */
+
+                session.getChunks().put(
+                                task.getChunkIndex(),
+                                chunk);
+
+                int uploaded = session
+                                .getUploadedChunks()
+                                .incrementAndGet();
+
+                System.out.println(
+                                "Video : "
+                                                + task.getVideoID()
+                                                + " Uploaded : "
+                                                + uploaded
+                                                + "/"
+                                                + session.getTotalChunks());
+
+                /*
+                 * ========================================================
+                 * ALL CHUNKS UPLOADED
+                 * ========================================================
+                 */
+
+                if (uploaded == session.getTotalChunks()) {
+
+                        /*
+                         * Persist all VideoChunk objects.
+                         *
+                         * telegramFilePath is included.
+                         */
 
                         databaseFlushService
-                        .flushToDatabase(session);
+                                        .flushToDatabase(
+                                                        session);
+
+                        /*
+                         * Remove upload session.
+                         */
 
                         sessionManager.removeSession(
-                        session.getVideoId());
-                        fileOperation.deleteDirectory(videoFolderMapToChunk.getVideoFolderPath(session.getVideoId()));
+                                        session.getVideoId());
 
+                        /*
+                         * Delete temporary upload chunks.
+                         */
 
-                        videoFolderMapToChunk.removeVideoFolderPath(session.getVideoId());
-                        
+                        fileOperation.deleteDirectory(
+                                        videoFolderMapToChunk
+                                                        .getVideoFolderPath(
+                                                                        session.getVideoId()));
 
+                        /*
+                         * Remove folder mapping.
+                         */
 
-                        
-
-                        }
+                        videoFolderMapToChunk
+                                        .removeVideoFolderPath(
+                                                        session.getVideoId());
                 }
         }
 
+        /*
+         * ============================================================
+         * TELEGRAM getFile()
+         * ============================================================
+         *
+         * Called ONLY after upload.
+         *
+         * sendDocument()
+         * ↓
+         * file_id
+         * ↓
+         * getFile()
+         * ↓
+         * file_path
+         *
+         * file_path is then stored in VideoChunk.
+         *
+         * ============================================================
+         */
+
+        private String getTelegramFilePath(
+                        String fileId) {
+
+                System.out.println(
+                                "GET FILE PATH START : "
+                                                + LocalTime.now().format(formatter));
+
+                JsonNode root = telegramWebClientConfig
+                                .getWebClient()
+                                .get()
+                                .uri(
+                                                uriBuilder -> uriBuilder
+                                                                .path(
+                                                                                "/bot{token}/getFile")
+                                                                .queryParam(
+                                                                                "file_id",
+                                                                                fileId)
+                                                                .build(
+                                                                                botToken))
+                                .retrieve()
+                                .bodyToMono(
+                                                JsonNode.class)
+                                .timeout(
+                                                Duration.ofSeconds(15))
+                                .block();
+
+                System.out.println(
+                                "GET FILE PATH END : "
+                                                + LocalTime.now().format(formatter));
+
+                /*
+                 * Validate response.
+                 */
+
+                if (root == null ||
+                                !root.path("ok")
+                                                .asBoolean(false)) {
+
+                        throw new RuntimeException(
+                                        "Failed to get Telegram file path "
+                                                        + "for fileId="
+                                                        + fileId);
+                }
+
+                String filePath = root.path("result")
+                                .path("file_path")
+                                .asString(null);
+
+                if (filePath == null ||
+                                filePath.isBlank()) {
+
+                        throw new RuntimeException(
+                                        "Telegram file_path is missing "
+                                                        + "for fileId="
+                                                        + fileId);
+                }
+
+                return filePath;
+        }
 }

@@ -108,10 +108,10 @@ public class DownloadVideoChunk {
                 System.out.println("step 2");
                 VideoChunk videoChunk = session.getVideoChunks().get(index);
                 System.out.println("step 3");
-                String telegramFileId = videoChunk.getTelegramFileId();
-                System.out.println("Downloading chunk " + index + " file_id: " + telegramFileId);
-                String filePath = getFilePath(telegramFileId);
-                byte[] data = downloadChunk(filePath);
+                String telegramFilePath = videoChunk.getTelegramFilePath();
+                System.out.println("Downloading chunk " + index + " file_id: " + telegramFilePath);
+                // String filePath = getFilePath(telegramFileId);
+                byte[] data = downloadChunk(telegramFilePath);
                 System.out.println("video is downloaded");
 
                 Path videoFolder = createVideoFolder(videoID);

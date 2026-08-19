@@ -1,5 +1,7 @@
 package com.anoop.videoStream.dto;
 
+import jakarta.persistence.Column;
+
 public class Document {
 
     private String file_id;
@@ -7,6 +9,8 @@ public class Document {
     private String file_unique_id;
 
     private long file_size;
+
+    private String telegramFilePath;
 
     public String getFile_id() {
         return file_id;
@@ -30,5 +34,13 @@ public class Document {
 
     public void setFile_size(long file_size) {
         this.file_size = file_size;
+    }
+
+    public String getTelegramFilePath() {
+        return telegramFilePath;
+    }
+
+    public void setTelegramFilePath(String telegramFilePath) {
+        this.telegramFilePath = telegramFilePath;
     }
 }

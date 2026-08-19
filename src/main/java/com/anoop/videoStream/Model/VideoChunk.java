@@ -29,6 +29,8 @@ public class VideoChunk {
     private String telegramFileId;
 
     private String telegramUniqueId;
+    
+    private String telegramFilePath;
 
     private String videoID;
 

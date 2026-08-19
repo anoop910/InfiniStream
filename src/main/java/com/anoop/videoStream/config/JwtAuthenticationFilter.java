@@ -9,9 +9,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.anoop.videoStream.Model.User;
-import com.anoop.videoStream.repository.UserRepository;
+import com.anoop.videoStream.dto.CachedUser;
 import com.anoop.videoStream.service.authService.JwtService;
+import com.anoop.videoStream.service.authService.UserAuthenticationService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -24,14 +24,15 @@ public class JwtAuthenticationFilter
         extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UserRepository userRepository;
+    private final UserAuthenticationService userAuthenticationService;
 
     public JwtAuthenticationFilter(
             JwtService jwtService,
-            UserRepository userRepository) {
+            UserAuthenticationService userAuthenticationService) {
 
         this.jwtService = jwtService;
-        this.userRepository = userRepository;
+        this.userAuthenticationService =
+                userAuthenticationService;
     }
 
     @Override
@@ -41,83 +42,58 @@ public class JwtAuthenticationFilter
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        System.out.println(
-                "JWT FILTER -> "
-                + request.getMethod()
-                + " "
-                + request.getRequestURI()
-        );
-
+        System.out.println("JWT AUTH: "+ request.getRequestURI());
         String token = getAccessToken(request);
+
 
         if (token != null) {
 
             try {
 
                 /*
-                 * Get user ID from JWT
+                 * Validate JWT
                  */
                 Long userId =
                         jwtService.getUserId(token);
 
                 /*
-                 * Find user in database
+                 * Get user from memory cache.
+                 *
+                 * DB is accessed only when
+                 * cache doesn't contain user.
                  */
-                User user =
-                        userRepository
-                                .findById(userId)
-                                .orElse(null);
+                CachedUser user =
+                        userAuthenticationService
+                                .getUser(userId);
 
                 if (user != null) {
 
-                    /*
-                     * Create Authentication
-                     */
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
-                                    userId,
+                                    user.userId(),
                                     null,
                                     List.of(
                                             new SimpleGrantedAuthority(
-                                                    "ROLE_" + user.getRole()
+                                                    "ROLE_" +
+                                                    user.role()
                                             )
                                     )
                             );
 
-                    /*
-                     * Put Authentication
-                     * into SecurityContext
-                     */
                     SecurityContextHolder
                             .getContext()
-                            .setAuthentication(authentication);
-
-                    System.out.println(
-                            "JWT AUTHENTICATED USER ID : "
-                            + userId
-                    );
+                            .setAuthentication(
+                                    authentication
+                            );
                 }
 
             } catch (Exception e) {
-
-                /*
-                 * Token invalid or expired.
-                 *
-                 * Do NOT throw exception here.
-                 * Let Spring Security return 401/403.
-                 */
-                System.out.println(
-                        "JWT INVALID OR EXPIRED"
-                );
 
                 SecurityContextHolder
                         .clearContext();
             }
         }
 
-        /*
-         * Continue request
-         */
         filterChain.doFilter(
                 request,
                 response
@@ -145,9 +121,9 @@ public class JwtAuthenticationFilter
 
         return null;
     }
+
     @Override
     protected boolean shouldNotFilterAsyncDispatch() {
-      return false;
-   }
-    
+        return false;
+    }
 }
