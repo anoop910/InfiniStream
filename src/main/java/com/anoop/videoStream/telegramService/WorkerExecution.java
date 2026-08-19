@@ -40,7 +40,7 @@ public class WorkerExecution {
 
     @PostConstruct
     public void createWoker() {
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 2; i++) {
             executorConfig.executor().submit(this::uploadWorkerLoop);
 
         }
